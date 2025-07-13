@@ -25,6 +25,3 @@ polyglot-benchmarks/
 
 # Ignore merge script
 merge_script.sh
-
-
-**/.bugf*
