@@ -578,8 +578,10 @@ async function startMcpServer(args) {
             
             // Set up connection monitoring
             const monitorInterval = setInterval(() => {
-                logger.logMemoryUsage('mcp-server');
-                logger.debug('Connection metrics', logger.getConnectionMetrics());
+                if (logger && typeof logger.logMemoryUsage === 'function') {
+                    logger.logMemoryUsage('mcp-server');
+                    logger.debug('Connection metrics', logger.getConnectionMetrics());
+                }
             }, 60000); // Every minute
             
             // Handle stdin close

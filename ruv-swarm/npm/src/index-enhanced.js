@@ -439,6 +439,11 @@ class Swarm {
     return agent;
   }
 
+  // Backward compatibility method
+  async spawnAgent(name, type = 'researcher') {
+    return this.spawn({ name, type });
+  }
+
   async orchestrate(taskConfig) {
     const {
       description,

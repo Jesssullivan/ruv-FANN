@@ -6,16 +6,36 @@
  */
 
 import { spawn } from 'child_process';
-import { setupClaudeIntegration, invokeClaudeWithSwarm as _invokeClaudeWithSwarm } from '../src/claude-integration/index.js';
-import { RuvSwarm } from '../src/index-enhanced.js';
-import { EnhancedMCPTools } from '../src/mcp-tools-enhanced.js';
-import { daaMcpTools } from '../src/mcp-daa-tools.js';
-import mcpToolsEnhanced from '../src/mcp-tools-enhanced.js';
-import { Logger } from '../src/logger.js';
-import { CommandSanitizer, SecurityError } from '../src/security.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+
+// Lazy imports - only load when needed
+let RuvSwarm, EnhancedMCPTools, daaMcpTools, Logger, CommandSanitizer, SecurityError;
+let setupClaudeIntegration, invokeClaudeWithSwarm;
+
+async function loadDependencies() {
+    if (!RuvSwarm) {
+        // Load all heavy dependencies at once
+        const [indexEnhanced, mcpToolsEnhanced, mcpDaaTools, logger, security, claudeIntegration] = await Promise.all([
+            import('../src/index-enhanced.js'),
+            import('../src/mcp-tools-enhanced.js'),
+            import('../src/mcp-daa-tools.js'),
+            import('../src/logger.js'),
+            import('../src/security.js'),
+            import('../src/claude-integration/index.js')
+        ]);
+        
+        RuvSwarm = indexEnhanced.RuvSwarm;
+        EnhancedMCPTools = mcpToolsEnhanced.EnhancedMCPTools;
+        daaMcpTools = mcpDaaTools.daaMcpTools;
+        Logger = logger.Logger;
+        CommandSanitizer = security.CommandSanitizer;
+        SecurityError = security.SecurityError;
+        setupClaudeIntegration = claudeIntegration.setupClaudeIntegration;
+        invokeClaudeWithSwarm = claudeIntegration.invokeClaudeWithSwarm;
+    }
+}
 
 // Get version from package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -171,6 +191,7 @@ let globalLogger = null;
 // Initialize logger based on environment
 async function initializeLogger() {
     if (!globalLogger) {
+        await loadDependencies();
         globalLogger = new Logger({
             name: 'ruv-swarm-mcp-no-timeout',
             level: process.env.LOG_LEVEL || (process.argv.includes('--debug') ? 'DEBUG' : 'INFO'),
@@ -187,7 +208,11 @@ async function initializeLogger() {
         
         // Set up global error handlers with stability - NO TIMEOUT MECHANISMS
         process.on('uncaughtException', (error) => {
-            globalLogger.fatal('Uncaught exception', { error });
+            if (globalLogger && typeof globalLogger.fatal === 'function') {
+                globalLogger.fatal('Uncaught exception', { error });
+            } else {
+                console.error('❌ Uncaught Exception:', error.message);
+            }
             if (isStabilityMode) {
                 stabilityLog(`Uncaught exception: ${error.message}`);
                 stabilityLog('Attempting graceful recovery...');
@@ -199,7 +224,11 @@ async function initializeLogger() {
         });
         
         process.on('unhandledRejection', (reason, promise) => {
-            globalLogger.fatal('Unhandled rejection', { reason, promise });
+            if (globalLogger && typeof globalLogger.fatal === 'function') {
+                globalLogger.fatal('Unhandled rejection', { reason, promise });
+            } else {
+                console.error('❌ Unhandled Rejection:', reason);
+            }
             if (isStabilityMode) {
                 stabilityLog(`Unhandled rejection: ${reason}`);
                 stabilityLog('Attempting graceful recovery...');
@@ -212,6 +241,8 @@ async function initializeLogger() {
 }
 
 async function initializeSystem() {
+    await loadDependencies();
+    
     if (!globalRuvSwarm) {
         // RuvSwarm.initialize already prints initialization messages
         globalRuvSwarm = await RuvSwarm.initialize({
@@ -407,6 +438,8 @@ async function handleClaudeInvoke(args) {
         console.log('Note: Use --dangerously-skip-permissions explicitly if needed');
         return;
     }
+    
+    await loadDependencies();
     
     // Security: validate prompt for dangerous patterns
     try {

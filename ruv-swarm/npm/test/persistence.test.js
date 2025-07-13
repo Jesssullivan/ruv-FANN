@@ -4,7 +4,7 @@
  */
 
 import assert from 'assert';
-const sqlite3 = require('sqlite3').verbose();
+import Database from 'better-sqlite3';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
@@ -25,31 +25,23 @@ class SwarmPersistence {
   }
 
   async connect() {
-    return new Promise((resolve, reject) => {
-      this.db = new sqlite3.Database(this.dbPath, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+    try {
+      this.db = new Database(this.dbPath);
+      return Promise.resolve();
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   async close() {
-    return new Promise((resolve, reject) => {
+    try {
       if (this.db) {
-        this.db.close((err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      } else {
-        resolve();
+        this.db.close();
       }
-    });
+      return Promise.resolve();
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   async initSchema() {
@@ -135,15 +127,12 @@ class SwarmPersistence {
             CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp);
         `;
 
-    return new Promise((resolve, reject) => {
-      this.db.exec(schema, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+    try {
+      this.db.exec(schema);
+      return Promise.resolve();
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   // Agent operations
@@ -307,39 +296,33 @@ class SwarmPersistence {
 
   // Helper methods
   run(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve({ lastID: this.lastID, changes: this.changes });
-        }
-      });
-    });
+    try {
+      const stmt = this.db.prepare(sql);
+      const result = stmt.run(...params);
+      return Promise.resolve({ lastID: result.lastInsertRowid, changes: result.changes });
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   get(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.get(sql, params, (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
+    try {
+      const stmt = this.db.prepare(sql);
+      const row = stmt.get(...params);
+      return Promise.resolve(row);
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   all(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      });
-    });
+    try {
+      const stmt = this.db.prepare(sql);
+      const rows = stmt.all(...params);
+      return Promise.resolve(rows);
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 }
 

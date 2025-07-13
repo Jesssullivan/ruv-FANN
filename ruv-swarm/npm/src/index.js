@@ -267,6 +267,11 @@ class SwarmWrapper {
     });
   }
 
+  // Backward compatibility method
+  async spawnAgent(name, type = 'researcher') {
+    return this.spawn({ name, type });
+  }
+
   async orchestrate(task) {
     return await this._retryOperation(async() => {
       return await this._swarm.orchestrate(task);
