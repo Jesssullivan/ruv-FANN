@@ -562,6 +562,28 @@ async function handleMcp(args) {
 async function startMcpServer(args) {
     const protocol = args.find(arg => arg.startsWith('--protocol='))?.split('=')[1] || 'stdio';
     const enableStability = args.includes('--stability') || process.env.MCP_STABILITY === 'true';
+    const enableHybrid = args.includes('--hybrid') || args.includes('--http');
+    
+    // If hybrid mode requested, delegate to hybrid server
+    if (enableHybrid) {
+        const { spawn } = await import('child_process');
+        const hybridArgs = ['./bin/ruv-swarm-hybrid.js', ...args];
+        const hybridProcess = spawn('node', hybridArgs, {
+            stdio: 'inherit',
+            cwd: join(__dirname, '..')
+        });
+        
+        hybridProcess.on('error', (error) => {
+            console.error('❌ Failed to start hybrid server:', error.message);
+            process.exit(1);
+        });
+        
+        hybridProcess.on('exit', (code) => {
+            process.exit(code || 0);
+        });
+        
+        return;
+    }
     
     if (enableStability) {
         isStabilityMode = true;
@@ -920,6 +942,11 @@ Subcommands:
 Options:
   --stability                            Enable auto-restart on crashes
   --protocol=stdio                       Use stdio protocol (default)
+  --hybrid                               Run both stdio AND HTTP/SSE servers
+  --http                                 Run HTTP/SSE server only (for claude-flow)
+  --port <port>                          HTTP server port (default: 8080)
+  --daemon                               Run as background daemon
+  --keep-alive                           Keep process alive for claude-flow
 
 🔥 TIMEOUT MECHANISMS: COMPLETELY REMOVED
   • No connection intervals
@@ -929,17 +956,26 @@ Options:
 
 Environment Variables:
   LOG_LEVEL                              Log level (DEBUG, INFO, WARN, ERROR)
+  CLAUDE_FLOW_MODE=true                  Enable claude-flow compatibility
+  CLAUDE_FLOW_PORT=8080                  HTTP server port
   
 🚨 REMOVED VARIABLES (NO LONGER NEEDED):
   MCP_CONNECTION_INTERVAL                ❌ REMOVED
   MCP_CONNECTION_TIMEOUT                 ❌ REMOVED
 
 Examples:
+  # For Claude Code (stdio):
   ruv-swarm mcp start                    # Start stdio MCP server (no timeouts)
   ruv-swarm mcp start --stability        # Start with crash protection (no timeouts)
-  ruv-swarm mcp tools                    # List available tools
   
-For Claude Code integration:
+  # For claude-flow (HTTP/SSE):
+  ruv-swarm mcp start --http --port 8080 # Start HTTP/SSE server
+  ruv-swarm mcp start --http --daemon    # Run as daemon service
+  
+  # For both (hybrid mode):
+  ruv-swarm mcp start --hybrid           # Run stdio AND HTTP/SSE servers
+  
+  # Integration examples:
   claude mcp add ruv-swarm npx ruv-swarm mcp start --stability
   
 🔥 SPECIAL FEATURES:
@@ -947,6 +983,8 @@ For Claude Code integration:
   • No disconnection mechanisms
   • Maximum stability without timeouts
   • Secure operation maintained
+  • HTTP/SSE support for claude-flow
+  • Hybrid mode for multiple clients
 `);
 }
 
