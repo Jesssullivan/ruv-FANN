@@ -1,24 +1,32 @@
-# RUV-FANN + HuskyCats Integrated Deployment Guide
+# Deployment Guide
 
-## 🚀 Quick Start
+## Quick Deployment
 
-Deploy the complete integrated stack in minutes:
+### 1. Single Command Deployment
 
 ```bash
-# 1. Bootstrap the integrated stack
-./scripts/bootstrap-integrated-stack.sh
-
-# 2. Set up Claude-Flow MCP integration
-./scripts/claude-flow-mcp-bootstrap.sh
-
-# 3. Access the services
-open http://localhost:3000  # Grafana Dashboard
-open http://localhost:8385  # Syncthing Web UI
+make deploy
 ```
 
-## 📋 Architecture Overview
+This single command will:
+1. Build the consolidated container with all services
+2. Start PostgreSQL, Redis, Syncthing, and MCP Server
+3. Initialize database schemas
+4. Set up persistent volumes
+5. Configure networking
 
-This deployment merges **RUV-FANN** neural network capabilities with **HuskyCats-Bates** validation services, implementing syncthing for FANN network synchronization and ensuring full compatibility with claude-flow alpha MCP bootstrap.
+### 2. Claude Flow Integration
+
+```bash
+# Install Claude Flow alpha
+npm install -g claude-flow@alpha
+
+# Bootstrap integration
+make bootstrap
+
+# Or use the full script
+./scripts/claude-flow-integrated-bootstrap.sh
+```
 
 ### 🏗️ Service Architecture
 

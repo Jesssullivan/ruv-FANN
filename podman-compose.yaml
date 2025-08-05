@@ -1,0 +1,55 @@
+# ruv-FANN Simplified Production Stack
+# Turnkey deployment for Podman Desktop and K8s
+
+version: '3.8'
+
+services:
+  # All-in-one FANN + MCP service
+  ruv-fann:
+    build:
+      context: .
+      dockerfile: ContainerFile
+    container_name: ruv-fann
+    hostname: ruv-fann
+    environment:
+      - NODE_ENV=production
+      - MCP_SERVER_PORT=3000
+      - CLAUDE_FLOW_ENABLED=true
+      # PostgreSQL (embedded)
+      - POSTGRES_DB=fanndb
+      - POSTGRES_USER=fann
+      - POSTGRES_PASSWORD=fann123
+      # Redis (embedded)
+      - REDIS_MAXMEMORY=256mb
+      # Syncthing (embedded)
+      - SYNCTHING_GUI_ADDRESS=0.0.0.0:8384
+      # Neural features
+      - WASM_SIMD_ENABLED=true
+      - DAA_ENABLED=true
+      - NEURAL_MODELS_PATH=/data/models
+    ports:
+      - "3000:3000"     # MCP Server
+      - "5432:5432"     # PostgreSQL
+      - "6379:6379"     # Redis
+      - "8384:8384"     # Syncthing UI
+      - "22000:22000"   # Syncthing protocol
+      - "21027:21027/udp" # Discovery
+    volumes:
+      - ./data:/data
+      - ./config:/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+
+volumes:
+  data:
+    driver: local
+  config:
+    driver: local

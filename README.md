@@ -1,13 +1,20 @@
-# ruv-FANN: The Neural Intelligence Framework 🧠
+# ruv-FANN: Neural Network Consensus Validators
 
-[![Crates.io](https://img.shields.io/crates/v/ruv-fann.svg)](https://crates.io/crates/ruv-fann)
-[![Documentation](https://docs.rs/ruv-fann/badge.svg)](https://docs.rs/ruv-fann)
-[![License](https://img.shields.io/crates/l/ruv-fann.svg)](https://github.com/ruvnet/ruv-fann/blob/main/LICENSE)
-[![CI](https://github.com/ruvnet/ruv-FANN/workflows/CI/badge.svg)](https://github.com/ruvnet/ruv-FANN/actions)
+Turnkey deployment of neural consensus validators for distributed AI swarms with Claude Flow integration.
 
-**What if intelligence could be ephemeral, composable, and surgically precise?**
+## 🚀 Quick Start
 
-Welcome to ruv-FANN, a comprehensive neural intelligence framework that reimagines how we build, deploy, and orchestrate artificial intelligence. This repository contains three groundbreaking projects that work together to deliver unprecedented performance in neural computing, forecasting, and multi-agent orchestration.
+**One command deployment:**
+
+```bash
+make deploy
+```
+
+This will:
+- Build the consolidated container
+- Start all services (PostgreSQL, Redis, Syncthing, MCP Server)
+- Initialize the neural validation system
+- Be ready for Claude Flow integration
 
 ## 🌟 The Vision
 

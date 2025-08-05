@@ -1,30 +1,34 @@
 # ruv-FANN Production Container
-# Optimized, consolidated build for Podman/K8s deployment
+# Consolidated multi-stage build for Podman/K8s deployment
 
 FROM node:20-alpine AS builder
 
-# Install build essentials
+# Install build essentials and dependencies
 RUN apk add --no-cache \
     python3 python3-dev \
-    gcc g++ make \
+    gcc g++ make cmake \
     git curl jq \
-    rust cargo
+    rust cargo \
+    postgresql-client \
+    libpq-dev
 
 # Install WASM tools
-RUN cargo install wasm-pack
+RUN cargo install wasm-pack wasm-bindgen-cli
 
 WORKDIR /app
 
-# Copy and install dependencies
+# Copy and install Node dependencies
 COPY package*.json ./
 COPY ruv-swarm/npm/package*.json ./ruv-swarm/npm/
 RUN npm ci --production=false
 
-# Copy source and build
-COPY . .
+# Build Rust/WASM components
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY ruv-swarm ./ruv-swarm
 RUN cd ruv-swarm && \
     cargo build --release --target wasm32-unknown-unknown && \
-    wasm-pack build --target nodejs --out-dir npm/wasm
+    wasm-pack build --target nodejs --out-dir npm/wasm --features simd
 
 # Production stage
 FROM node:20-alpine
@@ -35,7 +39,8 @@ RUN apk add --no-cache \
     postgresql-client \
     redis \
     syncthing \
-    curl jq
+    curl jq \
+    supervisor
 
 # Create non-root user
 RUN addgroup -g 1000 fann && \
@@ -48,10 +53,11 @@ COPY --from=builder --chown=fann:fann /app/node_modules ./node_modules
 COPY --from=builder --chown=fann:fann /app/ruv-swarm ./ruv-swarm
 COPY --chown=fann:fann package*.json ./
 COPY --chown=fann:fann mcp-server ./mcp-server
-COPY --chown=fann:fann scripts/docker-entrypoint.sh ./
+COPY --chown=fann:fann scripts/entrypoint.sh ./
+COPY --chown=fann:fann config/supervisor.conf /etc/supervisor/conf.d/
 
 # Create data directories
-RUN mkdir -p /data/{models,sync,cache,memory} && \
+RUN mkdir -p /data/{models,sync,cache,memory,postgres,redis} && \
     chown -R fann:fann /data
 
 # Environment
@@ -60,13 +66,17 @@ ENV NODE_ENV=production \
     REDIS_URL=redis://localhost:6379 \
     POSTGRES_URL=postgresql://fann:fann123@localhost:5432/fanndb \
     SYNCTHING_API=http://localhost:8384 \
-    WASM_SIMD_ENABLED=true
+    WASM_SIMD_ENABLED=true \
+    CLAUDE_FLOW_ENABLED=true
 
 USER fann
 
-EXPOSE 3000 8384 22000 21027/udp
+# Ports
+EXPOSE 3000 5432 6379 8384 22000 21027/udp
 
+# Health check
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+# Start supervisor
+CMD ["supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisor.conf"]
