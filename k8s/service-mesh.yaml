@@ -1,0 +1,599 @@
+# Service Mesh Configuration for RUV-FANN + HuskyCats Integration
+# Provides traffic management, security, and observability
+
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: ruv-fann-gateway
+  namespace: ruv-fann
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - ruv-fann.local
+    - "*.ruv-fann.local"
+    - fann-api.local
+    - huskycat-mcp.local
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - ruv-fann.local
+    - "*.ruv-fann.local"
+    - fann-api.local
+    - huskycat-mcp.local
+    tls:
+      mode: SIMPLE
+      credentialName: ruv-fann-tls-secret
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ruv-fann-vs
+  namespace: ruv-fann
+spec:
+  hosts:
+  - ruv-fann.local
+  - fann-api.local
+  gateways:
+  - ruv-fann-gateway
+  http:
+  # FANN Core API routes
+  - match:
+    - uri:
+        prefix: "/api/v1/fann"
+    - uri:
+        prefix: "/api/v1/models"
+    - uri:
+        prefix: "/api/v1/neural"
+    route:
+    - destination:
+        host: ruv-fann-core
+        port:
+          number: 8080
+    timeout: 60s
+    retries:
+      attempts: 3
+      perTryTimeout: 20s
+      retryOn: gateway-error,connect-failure,refused-stream
+    fault:
+      delay:
+        percentage:
+          value: 0.1
+        fixedDelay: 5s
+    headers:
+      request:
+        add:
+          x-service: "ruv-fann-core"
+          x-version: "1.0"
+
+  # FANN Training API routes
+  - match:
+    - uri:
+        prefix: "/api/v1/training"
+    route:
+    - destination:
+        host: ruv-fann-training
+        port:
+          number: 8080
+    timeout: 300s  # Longer timeout for training operations
+    retries:
+      attempts: 2
+      perTryTimeout: 120s
+    headers:
+      request:
+        add:
+          x-service: "ruv-fann-training"
+
+  # FANN Inference API routes (with load balancing)
+  - match:
+    - uri:
+        prefix: "/api/v1/inference"
+    - uri:
+        prefix: "/api/v1/predict"
+    route:
+    - destination:
+        host: ruv-fann-inference
+        port:
+          number: 8080
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+    fault:
+      abort:
+        percentage:
+          value: 0.01
+        httpStatus: 503
+    headers:
+      request:
+        add:
+          x-service: "ruv-fann-inference"
+      response:
+        add:
+          x-cache-status: "miss"
+
+  # Health check routes
+  - match:
+    - uri:
+        exact: "/health"
+    - uri:
+        exact: "/healthz"
+    route:
+    - destination:
+        host: ruv-fann-core
+        port:
+          number: 8080
+    timeout: 5s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: huskycat-mcp-vs
+  namespace: ruv-fann
+spec:
+  hosts:
+  - huskycat-mcp.local
+  - ruv-fann.local
+  gateways:
+  - ruv-fann-gateway
+  http:
+  # MCP Server routes
+  - match:
+    - uri:
+        prefix: "/api/v1/mcp"
+    - uri:
+        prefix: "/mcp"
+    route:
+    - destination:
+        host: huskycat-mcp
+        port:
+          number: 8080
+    timeout: 120s
+    retries:
+      attempts: 3
+      perTryTimeout: 40s
+    corsPolicy:
+      allowOrigins:
+      - exact: "http://localhost:3000"
+      - regex: ".*\\.ruv-fann\\.local"
+      allowMethods:
+      - POST
+      - GET
+      - OPTIONS
+      allowHeaders:
+      - authorization
+      - content-type
+      - x-api-key
+      maxAge: "24h"
+    headers:
+      request:
+        add:
+          x-service: "huskycat-mcp"
+
+  # Validation routes
+  - match:
+    - uri:
+        prefix: "/api/v1/validate"
+    - uri:
+        prefix: "/api/v1/lint"
+    route:
+    - destination:
+        host: huskycat-validator
+        port:
+          number: 8080
+    timeout: 300s  # Long timeout for code validation
+    retries:
+      attempts: 2
+      perTryTimeout: 150s
+    headers:
+      request:
+        add:
+          x-service: "huskycat-validator"
+
+  # Syncthing routes
+  - match:
+    - uri:
+        prefix: "/api/v1/sync"
+    - uri:
+        prefix: "/syncthing"
+    route:
+    - destination:
+        host: syncthing-mesh
+        port:
+          number: 8384
+    timeout: 60s
+    headers:
+      request:
+        add:
+          x-service: "syncthing-mesh"
+---
+# Destination Rules for traffic policies
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ruv-fann-core-dr
+  namespace: ruv-fann
+spec:
+  host: ruv-fann-core
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 30s
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        consecutiveGatewayErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+    loadBalancer:
+      simple: LEAST_CONN
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 30
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ruv-fann-inference-dr
+  namespace: ruv-fann
+spec:
+  host: ruv-fann-inference
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 200
+        connectTimeout: 10s
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 200
+        maxRequestsPerConnection: 20
+        maxRetries: 3
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutiveGatewayErrors: 2
+      interval: 10s
+      baseEjectionTime: 15s
+      maxEjectionPercent: 20
+  subsets:
+  # A/B testing subsets
+  - name: v1
+    labels:
+      version: v1
+    trafficPolicy:
+      portLevelSettings:
+      - port:
+          number: 8080
+        loadBalancer:
+          simple: LEAST_CONN
+  - name: v2
+    labels:
+      version: v2
+    trafficPolicy:
+      portLevelSettings:
+      - port:
+          number: 8080
+        loadBalancer:
+          simple: ROUND_ROBIN
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: huskycat-mcp-dr
+  namespace: ruv-fann
+spec:
+  host: huskycat-mcp
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 150
+        connectTimeout: 20s
+      http:
+        http1MaxPendingRequests: 75
+        http2MaxRequests: 150
+        maxRequestsPerConnection: 15
+        maxRetries: 3
+    loadBalancer:
+      simple: LEAST_CONN
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      interval: 20s
+      baseEjectionTime: 20s
+---
+# Service Entries for external dependencies
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-claude-api
+  namespace: ruv-fann
+spec:
+  hosts:
+  - api.anthropic.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-prometheus
+  namespace: ruv-fann
+spec:
+  hosts:
+  - prometheus.io
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+# Authorization Policies
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ruv-fann-authz
+  namespace: ruv-fann
+spec:
+  selector:
+    matchLabels:
+      app: ruv-fann
+  rules:
+  # Allow health checks from anywhere
+  - to:
+    - operation:
+        paths: ["/health", "/healthz", "/ready"]
+  # Allow metrics scraping from Prometheus
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/prometheus"]
+    to:
+    - operation:
+        paths: ["/metrics", "/stats/prometheus"]
+  # Allow API access with valid bearer token
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        paths: ["/api/*"]
+    when:
+    - key: request.headers[authorization]
+      values: ["Bearer *"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: huskycat-mcp-authz
+  namespace: ruv-fann
+spec:
+  selector:
+    matchLabels:
+      app: huskycat
+  rules:
+  # Allow MCP protocol access
+  - to:
+    - operation:
+        paths: ["/mcp", "/api/v1/mcp/*"]
+  # Allow validation requests
+  - to:
+    - operation:
+        paths: ["/api/v1/validate/*", "/api/v1/lint/*"]
+  # Allow health checks
+  - to:
+    - operation:
+        paths: ["/health", "/healthz"]
+---
+# Peer Authentication for mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: ruv-fann-mtls
+  namespace: ruv-fann
+spec:
+  mtls:
+    mode: STRICT
+---
+# Telemetry configuration
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: ruv-fann-telemetry
+  namespace: ruv-fann
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: ALL_METRICS
+      tagOverrides:
+        ruv_fann_service:
+          value: "{{ .source_app | default \"unknown\" }}"
+        ruv_fann_version:
+          value: "{{ .source_version | default \"unknown\" }}"
+  accessLogging:
+  - providers:
+    - name: otel
+  tracing:
+  - providers:
+    - name: jaeger
+---
+# EnvoyFilter for custom headers and routing
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ruv-fann-custom-headers
+  namespace: ruv-fann
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.lua
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          inline_code: |
+            function envoy_on_request(request_handle)
+              -- Add custom headers for FANN requests
+              request_handle:headers():add("x-fann-request-id", request_handle:headers():get(":path") .. "-" .. tostring(os.time()))
+              request_handle:headers():add("x-fann-timestamp", os.date("!%Y-%m-%dT%H:%M:%SZ"))
+              
+              -- Rate limiting based on client
+              local client_ip = request_handle:headers():get("x-forwarded-for") or request_handle:headers():get("x-real-ip")
+              if client_ip then
+                request_handle:headers():add("x-fann-client-ip", client_ip)
+              end
+            end
+            
+            function envoy_on_response(response_handle)
+              -- Add response timing headers
+              response_handle:headers():add("x-fann-processed-at", os.date("!%Y-%m-%dT%H:%M:%SZ"))
+              response_handle:headers():add("x-fann-service-mesh", "istio")
+            end
+---
+# Wasmplugin for advanced request processing
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: ruv-fann-request-processor
+  namespace: ruv-fann
+spec:
+  selector:
+    matchLabels:
+      app: ruv-fann
+  url: oci://ghcr.io/istio/wasm-plugins/request-processor:latest
+  phase: AUTHN
+  pluginConfig:
+    neural_network_routing: true
+    inference_load_balancing: true
+    request_validation: true
+    metrics_collection: true
+---
+# Network Policies
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ruv-fann-network-policy
+  namespace: ruv-fann
+spec:
+  podSelector:
+    matchLabels:
+      app: ruv-fann
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from istio-system
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+  # Allow ingress from same namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ruv-fann
+  # Allow ingress from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8081
+  egress:
+  # Allow egress to same namespace
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: ruv-fann
+  # Allow egress to system services
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+  # Allow egress to external APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: huskycat-network-policy
+  namespace: ruv-fann
+spec:
+  podSelector:
+    matchLabels:
+      app: huskycat
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from istio-system
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+  # Allow ingress from ruv-fann services
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ruv-fann
+  # Allow ingress from same namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ruv-fann
+  egress:
+  # Allow egress to ruv-fann services
+  - to:
+    - podSelector:
+        matchLabels:
+          app: ruv-fann
+  # Allow egress to same namespace
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: ruv-fann
+  # Allow egress for validation tools
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

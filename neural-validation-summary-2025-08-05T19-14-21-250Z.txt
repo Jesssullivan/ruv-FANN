@@ -1,0 +1,190 @@
+NEURAL MODEL VALIDATION SUMMARY REPORT
+================================================================================
+
+Generated: 2025-08-05T19:14:21.251Z
+Execution Time: 5.87 seconds
+
+OVERALL SUMMARY:
+----------------------------------------
+Total Models Discovered: 80
+Models Successfully Tested: 80
+Passed All Tests: 78
+Failed Tests: 2
+Success Rate: 97.50%
+Total Errors: 0
+Total Warnings: 0
+
+MODEL CATEGORIES:
+----------------------------------------
+transformer: 3 models
+  - bert_base (complete_presets)
+  - gpt_small (complete_presets)
+  - t5_base (complete_presets)
+cnn: 2 models
+  - efficientnet_b0 (complete_presets)
+  - yolov5_small (complete_presets)
+lstm: 2 models
+  - bilstm_sentiment (complete_presets)
+  - lstm_timeseries (complete_presets)
+gru: 1 models
+  - gru_translator (complete_presets)
+autoencoder: 2 models
+  - vae_mnist (complete_presets)
+  - dae_denoising (complete_presets)
+gnn: 2 models
+  - gcn_citation (complete_presets)
+  - gat_molecular (complete_presets)
+resnet: 1 models
+  - resnet50_imagenet (complete_presets)
+attention: 1 models
+  - multihead_attention (complete_presets)
+diffusion: 1 models
+  - ddpm_mnist (complete_presets)
+neural_ode: 1 models
+  - node_dynamics (complete_presets)
+capsnet: 1 models
+  - capsnet_mnist (complete_presets)
+snn: 1 models
+  - lif_classifier (complete_presets)
+ntm: 1 models
+  - ntm_copy (complete_presets)
+memnn: 1 models
+  - memnn_qa (complete_presets)
+nca: 1 models
+  - nca_growth (complete_presets)
+hypernet: 1 models
+  - hypernet_adaptive (complete_presets)
+maml: 1 models
+  - maml_fewshot (complete_presets)
+nas: 1 models
+  - darts_cifar (complete_presets)
+moe: 1 models
+  - moe_nlp (complete_presets)
+nerf: 1 models
+  - nerf_3d (complete_presets)
+wavenet: 1 models
+  - wavenet_tts (complete_presets)
+pointnet: 1 models
+  - pointnet_seg (complete_presets)
+world_model: 1 models
+  - world_model_rl (complete_presets)
+flow: 1 models
+  - realvp_generation (complete_presets)
+ebm: 1 models
+  - ebm_generation (complete_presets)
+neural_process: 1 models
+  - cnp_regression (complete_presets)
+set_transformer: 1 models
+  - set_anomaly (complete_presets)
+template: 41 models
+  - deep_analyzer (neural_manager)
+  - nlp_processor (neural_manager)
+  - reinforcement_learner (neural_manager)
+  - pattern_recognizer (neural_manager)
+  - time_series_analyzer (neural_manager)
+  - transformer_nlp (neural_manager)
+  - cnn_vision (neural_manager)
+  - gru_sequence (neural_manager)
+  - autoencoder_compress (neural_manager)
+  - gnn_social (neural_manager)
+  - resnet_classifier (neural_manager)
+  - vae_generator (neural_manager)
+  - lstm_sequence (neural_manager)
+  - preset_model (neural_manager)
+  - attention_mechanism (neural_manager)
+  - diffusion_model (neural_manager)
+  - neural_ode (neural_manager)
+  - capsule_network (neural_manager)
+  - spiking_neural (neural_manager)
+  - graph_attention (neural_manager)
+  - neural_turing (neural_manager)
+  - memory_network (neural_manager)
+  - neural_cellular (neural_manager)
+  - hypernetwork (neural_manager)
+  - meta_learning (neural_manager)
+  - neural_architecture_search (neural_manager)
+  - mixture_of_experts (neural_manager)
+  - neural_radiance_field (neural_manager)
+  - wavenet_audio (neural_manager)
+  - pointnet_3d (neural_manager)
+  - neural_baby_ai (neural_manager)
+  - world_model (neural_manager)
+  - flow_based (neural_manager)
+  - energy_based (neural_manager)
+  - neural_processes (neural_manager)
+  - set_transformer (neural_manager)
+  - neural_implicit (neural_manager)
+  - evolutionary_neural (neural_manager)
+  - quantum_neural (neural_manager)
+  - optical_neural (neural_manager)
+  - neuromorphic (neural_manager)
+core: 1 models
+  - ruv_fann_core (specialized)
+forecasting: 1 models
+  - lstm_forecasting (specialized)
+nlp: 1 models
+  - transformer_nlp (specialized)
+vision: 1 models
+  - cnn_vision (specialized)
+graph: 1 models
+  - gnn_graph (specialized)
+rl: 1 models
+  - reinforcement_learning (specialized)
+
+TEST PHASE RESULTS:
+----------------------------------------
+accessibility: EXECUTED
+  fullyAccessible: 78
+  partiallyAccessible: 2
+  notAccessible: 0
+initialization: EXECUTED
+  successful: 78
+  failed: 2
+  timeouts: 0
+  avgInitTime: 14.11076596153846
+forward_pass: EXECUTED
+  successful: 78
+  failed: 0
+  avgForwardTime: 5.187871217948709
+training: EXECUTED
+  successful: 0
+  failed: 10
+  converged: 0
+  avgTrainingTime: 0
+benchmarks: EXECUTED
+  testsRun: 4
+  details: See detailed results
+memory_management: EXECUTED
+  testsRun: 3
+  details: See detailed results
+error_handling: EXECUTED
+  testsRun: 3
+  details: See detailed results
+wasm_interoperability: EXECUTED
+  testsRun: 3
+  details: See detailed results
+integration: EXECUTED
+  testsRun: 3
+  details: See detailed results
+
+PERFORMANCE ANALYSIS:
+----------------------------------------
+Throughput:
+  Fastest: undefined (undefined samples/sec)
+  Slowest: undefined (undefined samples/sec)
+  Average: 0.00 samples/sec
+Latency:
+  Fastest: undefined (undefinedms)
+  Slowest: undefined (undefinedms)
+  Average: 0.00ms
+Memory Usage:
+  Most Efficient: undefined (undefinedMB)
+  Least Efficient: undefined (undefinedMB)
+  Average: 0.00MB
+
+RECOMMENDATIONS:
+----------------------------------------
+[HIGH] reliability: 2 models failed testing. Review error logs and fix critical issues.
+
+================================================================================
+End of Report

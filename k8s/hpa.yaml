@@ -1,0 +1,104 @@
+# Horizontal Pod Autoscaler for ruv-FANN
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ruv-fann-hpa
+  namespace: ruv-fann
+  labels:
+    app: ruv-fann
+    component: neural-engine
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ruv-fann
+  minReplicas: 3
+  maxReplicas: 50
+  metrics:
+  # CPU utilization
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # Memory utilization
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Custom metric: Neural inference queue size
+  - type: Pods
+    pods:
+      metric:
+        name: neural_inference_queue_size
+      target:
+        type: AverageValue
+        averageValue: "100"
+  # Custom metric: MCP request rate
+  - type: Pods
+    pods:
+      metric:
+        name: mcp_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "1000"
+  # Custom metric: WASM memory pressure
+  - type: Pods
+    pods:
+      metric:
+        name: wasm_memory_pressure
+      target:
+        type: AverageValue
+        averageValue: "0.7"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 5
+        periodSeconds: 30
+      selectPolicy: Max
+---
+# ServiceMonitor for Prometheus metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ruv-fann-metrics
+  namespace: ruv-fann
+  labels:
+    app: ruv-fann
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: ruv-fann
+      component: neural-engine
+  endpoints:
+  - port: mcp
+    interval: 30s
+    path: /metrics
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: '(neural_.*|mcp_.*|wasm_.*|syncthing_.*)'
+      action: keep

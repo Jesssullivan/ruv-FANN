@@ -1,0 +1,133 @@
+# RUV-FANN Core Service Container
+# Multi-stage build for optimized neural network engine
+
+FROM rust:1.81-alpine AS rust-builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    gcc g++ musl-dev linux-headers \
+    pkgconfig openssl-dev \
+    git curl wget
+
+# Install WASM build tools
+RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+RUN wget https://github.com/WebAssembly/binaryen/releases/download/version_118/binaryen-version_118-x86_64-linux.tar.gz && \
+    tar -xzf binaryen-version_118-x86_64-linux.tar.gz && \
+    cp binaryen-version_118/bin/wasm-opt /usr/local/bin/ && \
+    rm -rf binaryen-version_118*
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency manifests first for better caching
+COPY Cargo.toml Cargo.lock ./
+COPY src/lib.rs src/lib.rs
+
+# Pre-build dependencies
+RUN cargo build --release --features="default,gpu,wasm,parallel" && \
+    rm -rf src/
+
+# Copy source code
+COPY src/ ./src/
+COPY cuda-wasm/ ./cuda-wasm/
+COPY neuro-divergent/ ./neuro-divergent/
+COPY ruv-swarm/ ./ruv-swarm/
+
+# Build FANN core with all features
+RUN cargo build --release --features="default,gpu,wasm,parallel,ruv-swarm"
+
+# Build WASM modules
+RUN cd cuda-wasm && wasm-pack build --target web --release --out-dir ../wasm-pkg
+RUN cd ruv-swarm/crates/ruv-swarm-wasm && wasm-pack build --target web --release --out-dir ../../../wasm-swarm
+
+# Optimize WASM files
+RUN find . -name "*.wasm" -exec wasm-opt -Oz {} -o {} \;
+
+# Node.js builder for integration components
+FROM node:20-alpine AS node-builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY ruv-swarm/npm/package*.json ./ruv-swarm-npm/
+
+# Install dependencies
+RUN npm ci --only=production
+RUN cd ruv-swarm-npm && npm ci --only=production
+
+# Copy and build Node.js components
+COPY ruv-swarm/npm/src/ ./ruv-swarm-npm/src/
+COPY ruv-swarm/npm/tsconfig.json ./ruv-swarm-npm/
+
+RUN cd ruv-swarm-npm && npm run build
+
+# Runtime stage - optimized Alpine Linux
+FROM alpine:3.19 AS runtime
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    libgcc libstdc++ libgfortran \
+    nodejs npm \
+    python3 py3-pip \
+    curl wget jq \
+    git openssh-client \
+    ca-certificates
+
+# Create app user
+RUN addgroup -g 1000 fann && \
+    adduser -D -s /bin/sh -u 1000 -G fann fann
+
+# Create application directories
+RUN mkdir -p /opt/ruv-fann/{bin,lib,wasm,models,cache,config} && \
+    mkdir -p /mnt/syncthing/{fann,datasets,models} && \
+    mkdir -p /workspace && \
+    chown -R fann:fann /opt/ruv-fann /mnt/syncthing /workspace
+
+# Copy Rust binaries
+COPY --from=rust-builder /app/target/release/ruv-fann /opt/ruv-fann/bin/
+COPY --from=rust-builder /app/target/release/examples/* /opt/ruv-fann/bin/
+
+# Copy WASM modules
+COPY --from=rust-builder /app/wasm-pkg/ /opt/ruv-fann/wasm/cuda-wasm/
+COPY --from=rust-builder /app/wasm-swarm/ /opt/ruv-fann/wasm/ruv-swarm/
+
+# Copy Node.js integration
+COPY --from=node-builder /app/ruv-swarm-npm/dist/ /opt/ruv-fann/lib/ruv-swarm/
+COPY --from=node-builder /app/ruv-swarm-npm/node_modules/ /opt/ruv-fann/lib/node_modules/
+
+# Copy configuration templates
+COPY config/fann-core.toml /opt/ruv-fann/config/
+COPY scripts/fann-entrypoint.sh /opt/ruv-fann/bin/
+COPY scripts/health-check.sh /opt/ruv-fann/bin/
+
+# Make scripts executable
+RUN chmod +x /opt/ruv-fann/bin/fann-entrypoint.sh && \
+    chmod +x /opt/ruv-fann/bin/health-check.sh && \
+    chmod +x /opt/ruv-fann/bin/ruv-fann
+
+# Set up environment
+ENV PATH="/opt/ruv-fann/bin:${PATH}"
+ENV NODE_PATH="/opt/ruv-fann/lib/node_modules"
+ENV RUST_LOG=info
+ENV FANN_CONFIG_PATH="/opt/ruv-fann/config/fann-core.toml"
+ENV FANN_MODELS_PATH="/opt/ruv-fann/models"
+ENV FANN_CACHE_PATH="/opt/ruv-fann/cache"
+ENV SYNCTHING_PATH="/mnt/syncthing"
+
+# Switch to app user
+USER fann
+
+# Set working directory
+WORKDIR /workspace
+
+# Expose ports
+EXPOSE 8080 8081
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+    CMD /opt/ruv-fann/bin/health-check.sh
+
+# Entry point
+ENTRYPOINT ["/opt/ruv-fann/bin/fann-entrypoint.sh"]
+CMD ["serve", "--host", "0.0.0.0", "--port", "8080"]

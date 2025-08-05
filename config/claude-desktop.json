@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "ruv-fann": {
+      "command": "npx",
+      "args": ["ruv-swarm", "mcp", "server"],
+      "env": {
+        "MCP_ENDPOINT": "http://localhost:3000",
+        "NODE_ENV": "production"
+      },
+      "features": {
+        "tools": 27,
+        "models": 27,
+        "persistence": true,
+        "syncthing": true
+      }
+    }
+  },
+  "hooks": {
+    "preToolUse": "curl -X POST http://localhost:3000/hooks/pre-tool",
+    "postToolUse": "curl -X POST http://localhost:3000/hooks/post-tool",
+    "sessionStart": "curl -X POST http://localhost:3000/session/start",
+    "sessionEnd": "curl -X POST http://localhost:3000/session/end"
+  },
+  "toolHints": "http://localhost:3000/tools/hints",
+  "modelRegistry": "http://localhost:3000/models"
+}

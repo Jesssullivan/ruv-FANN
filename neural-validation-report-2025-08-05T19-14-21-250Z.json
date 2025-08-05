@@ -1,0 +1,964 @@
+{
+  "metadata": {
+    "timestamp": "2025-08-05T19:14:21.245Z",
+    "testSuiteVersion": "1.0.0",
+    "executionTime": 5866.398749999999,
+    "totalModels": 80,
+    "environment": {
+      "platform": "darwin",
+      "nodeVersion": "v24.1.0",
+      "memoryLimit": 1625653248,
+      "userAgent": "Node.js/24"
+    }
+  },
+  "summary": {
+    "totalModels": 80,
+    "testedModels": 80,
+    "passedModels": 78,
+    "failedModels": 2,
+    "skippedModels": 0,
+    "successRate": 97.5,
+    "totalErrors": 0,
+    "totalWarnings": 0
+  },
+  "modelCatalog": {
+    "transformer": [
+      {
+        "name": "bert_base",
+        "fullName": "transformer/bert_base",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "convergent",
+          "systems",
+          "abstract"
+        ],
+        "hasConfig": true
+      },
+      {
+        "name": "gpt_small",
+        "fullName": "transformer/gpt_small",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "divergent",
+          "lateral",
+          "abstract"
+        ],
+        "hasConfig": true
+      },
+      {
+        "name": "t5_base",
+        "fullName": "transformer/t5_base",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "convergent",
+          "critical"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "cnn": [
+      {
+        "name": "efficientnet_b0",
+        "fullName": "cnn/efficientnet_b0",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "critical",
+          "convergent",
+          "abstract"
+        ],
+        "hasConfig": true
+      },
+      {
+        "name": "yolov5_small",
+        "fullName": "cnn/yolov5_small",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "critical",
+          "convergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "lstm": [
+      {
+        "name": "bilstm_sentiment",
+        "fullName": "lstm/bilstm_sentiment",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "convergent",
+          "systems",
+          "critical"
+        ],
+        "hasConfig": true
+      },
+      {
+        "name": "lstm_timeseries",
+        "fullName": "lstm/lstm_timeseries",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "convergent",
+          "abstract"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "gru": [
+      {
+        "name": "gru_translator",
+        "fullName": "gru/gru_translator",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "abstract",
+          "convergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "autoencoder": [
+      {
+        "name": "vae_mnist",
+        "fullName": "autoencoder/vae_mnist",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "divergent",
+          "abstract",
+          "lateral"
+        ],
+        "hasConfig": true
+      },
+      {
+        "name": "dae_denoising",
+        "fullName": "autoencoder/dae_denoising",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "convergent",
+          "critical",
+          "systems"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "gnn": [
+      {
+        "name": "gcn_citation",
+        "fullName": "gnn/gcn_citation",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "abstract",
+          "lateral"
+        ],
+        "hasConfig": true
+      },
+      {
+        "name": "gat_molecular",
+        "fullName": "gnn/gat_molecular",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "critical",
+          "systems",
+          "convergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "resnet": [
+      {
+        "name": "resnet50_imagenet",
+        "fullName": "resnet/resnet50_imagenet",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "convergent",
+          "critical",
+          "systems"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "attention": [
+      {
+        "name": "multihead_attention",
+        "fullName": "attention/multihead_attention",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "abstract",
+          "convergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "diffusion": [
+      {
+        "name": "ddpm_mnist",
+        "fullName": "diffusion/ddpm_mnist",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "divergent",
+          "lateral",
+          "abstract"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "neural_ode": [
+      {
+        "name": "node_dynamics",
+        "fullName": "neural_ode/node_dynamics",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "abstract",
+          "convergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "capsnet": [
+      {
+        "name": "capsnet_mnist",
+        "fullName": "capsnet/capsnet_mnist",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "lateral",
+          "systems",
+          "abstract"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "snn": [
+      {
+        "name": "lif_classifier",
+        "fullName": "snn/lif_classifier",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "critical",
+          "convergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "ntm": [
+      {
+        "name": "ntm_copy",
+        "fullName": "ntm/ntm_copy",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "abstract",
+          "convergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "memnn": [
+      {
+        "name": "memnn_qa",
+        "fullName": "memnn/memnn_qa",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "convergent",
+          "systems",
+          "critical"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "nca": [
+      {
+        "name": "nca_growth",
+        "fullName": "nca/nca_growth",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "divergent",
+          "lateral",
+          "systems"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "hypernet": [
+      {
+        "name": "hypernet_adaptive",
+        "fullName": "hypernet/hypernet_adaptive",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "abstract",
+          "lateral",
+          "systems"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "maml": [
+      {
+        "name": "maml_fewshot",
+        "fullName": "maml/maml_fewshot",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "abstract",
+          "divergent",
+          "critical"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "nas": [
+      {
+        "name": "darts_cifar",
+        "fullName": "nas/darts_cifar",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "divergent",
+          "critical",
+          "systems"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "moe": [
+      {
+        "name": "moe_nlp",
+        "fullName": "moe/moe_nlp",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "divergent",
+          "abstract"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "nerf": [
+      {
+        "name": "nerf_3d",
+        "fullName": "nerf/nerf_3d",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "abstract",
+          "systems",
+          "lateral"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "wavenet": [
+      {
+        "name": "wavenet_tts",
+        "fullName": "wavenet/wavenet_tts",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "convergent",
+          "systems",
+          "critical"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "pointnet": [
+      {
+        "name": "pointnet_seg",
+        "fullName": "pointnet/pointnet_seg",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "critical",
+          "abstract"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "world_model": [
+      {
+        "name": "world_model_rl",
+        "fullName": "world_model/world_model_rl",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "systems",
+          "abstract",
+          "divergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "flow": [
+      {
+        "name": "realvp_generation",
+        "fullName": "flow/realvp_generation",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "divergent",
+          "abstract",
+          "lateral"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "ebm": [
+      {
+        "name": "ebm_generation",
+        "fullName": "ebm/ebm_generation",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "divergent",
+          "critical",
+          "systems"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "neural_process": [
+      {
+        "name": "cnp_regression",
+        "fullName": "neural_process/cnp_regression",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "abstract",
+          "systems",
+          "convergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "set_transformer": [
+      {
+        "name": "set_anomaly",
+        "fullName": "set_transformer/set_anomaly",
+        "source": "complete_presets",
+        "type": "preset",
+        "cognitivePatterns": [
+          "critical",
+          "systems",
+          "convergent"
+        ],
+        "hasConfig": true
+      }
+    ],
+    "template": [
+      {
+        "name": "deep_analyzer",
+        "fullName": "template/deep_analyzer",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "nlp_processor",
+        "fullName": "template/nlp_processor",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "reinforcement_learner",
+        "fullName": "template/reinforcement_learner",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "pattern_recognizer",
+        "fullName": "template/pattern_recognizer",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "time_series_analyzer",
+        "fullName": "template/time_series_analyzer",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "transformer_nlp",
+        "fullName": "template/transformer_nlp",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "cnn_vision",
+        "fullName": "template/cnn_vision",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "gru_sequence",
+        "fullName": "template/gru_sequence",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "autoencoder_compress",
+        "fullName": "template/autoencoder_compress",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "gnn_social",
+        "fullName": "template/gnn_social",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "resnet_classifier",
+        "fullName": "template/resnet_classifier",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "vae_generator",
+        "fullName": "template/vae_generator",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "lstm_sequence",
+        "fullName": "template/lstm_sequence",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "preset_model",
+        "fullName": "template/preset_model",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "attention_mechanism",
+        "fullName": "template/attention_mechanism",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "diffusion_model",
+        "fullName": "template/diffusion_model",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "neural_ode",
+        "fullName": "template/neural_ode",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "capsule_network",
+        "fullName": "template/capsule_network",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "spiking_neural",
+        "fullName": "template/spiking_neural",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "graph_attention",
+        "fullName": "template/graph_attention",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "neural_turing",
+        "fullName": "template/neural_turing",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "memory_network",
+        "fullName": "template/memory_network",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "neural_cellular",
+        "fullName": "template/neural_cellular",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "hypernetwork",
+        "fullName": "template/hypernetwork",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "meta_learning",
+        "fullName": "template/meta_learning",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "neural_architecture_search",
+        "fullName": "template/neural_architecture_search",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "mixture_of_experts",
+        "fullName": "template/mixture_of_experts",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "neural_radiance_field",
+        "fullName": "template/neural_radiance_field",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "wavenet_audio",
+        "fullName": "template/wavenet_audio",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "pointnet_3d",
+        "fullName": "template/pointnet_3d",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "neural_baby_ai",
+        "fullName": "template/neural_baby_ai",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "world_model",
+        "fullName": "template/world_model",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "flow_based",
+        "fullName": "template/flow_based",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "energy_based",
+        "fullName": "template/energy_based",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "neural_processes",
+        "fullName": "template/neural_processes",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "set_transformer",
+        "fullName": "template/set_transformer",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "neural_implicit",
+        "fullName": "template/neural_implicit",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "evolutionary_neural",
+        "fullName": "template/evolutionary_neural",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "quantum_neural",
+        "fullName": "template/quantum_neural",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "optical_neural",
+        "fullName": "template/optical_neural",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      },
+      {
+        "name": "neuromorphic",
+        "fullName": "template/neuromorphic",
+        "source": "neural_manager",
+        "type": "template",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      }
+    ],
+    "core": [
+      {
+        "name": "ruv_fann_core",
+        "fullName": "specialized/ruv_fann_core",
+        "source": "specialized",
+        "type": "native",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      }
+    ],
+    "forecasting": [
+      {
+        "name": "lstm_forecasting",
+        "fullName": "specialized/lstm_forecasting",
+        "source": "specialized",
+        "type": "specialized",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      }
+    ],
+    "nlp": [
+      {
+        "name": "transformer_nlp",
+        "fullName": "specialized/transformer_nlp",
+        "source": "specialized",
+        "type": "specialized",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      }
+    ],
+    "vision": [
+      {
+        "name": "cnn_vision",
+        "fullName": "specialized/cnn_vision",
+        "source": "specialized",
+        "type": "specialized",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      }
+    ],
+    "graph": [
+      {
+        "name": "gnn_graph",
+        "fullName": "specialized/gnn_graph",
+        "source": "specialized",
+        "type": "specialized",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      }
+    ],
+    "rl": [
+      {
+        "name": "reinforcement_learning",
+        "fullName": "specialized/reinforcement_learning",
+        "source": "specialized",
+        "type": "specialized",
+        "cognitivePatterns": [],
+        "hasConfig": true
+      }
+    ]
+  },
+  "phaseResults": {
+    "accessibility": {
+      "executed": true,
+      "summary": {
+        "fullyAccessible": 78,
+        "partiallyAccessible": 2,
+        "notAccessible": 0
+      }
+    },
+    "initialization": {
+      "executed": true,
+      "summary": {
+        "successful": 78,
+        "failed": 2,
+        "timeouts": 0,
+        "avgInitTime": 14.11076596153846
+      }
+    },
+    "forward_pass": {
+      "executed": true,
+      "summary": {
+        "successful": 78,
+        "failed": 0,
+        "avgForwardTime": 5.187871217948709
+      }
+    },
+    "training": {
+      "executed": true,
+      "summary": {
+        "successful": 0,
+        "failed": 10,
+        "converged": 0,
+        "avgTrainingTime": 0
+      }
+    },
+    "benchmarks": {
+      "executed": true,
+      "summary": {
+        "testsRun": 4,
+        "details": "See detailed results"
+      }
+    },
+    "memory_management": {
+      "executed": true,
+      "summary": {
+        "testsRun": 3,
+        "details": "See detailed results"
+      }
+    },
+    "error_handling": {
+      "executed": true,
+      "summary": {
+        "testsRun": 3,
+        "details": "See detailed results"
+      }
+    },
+    "wasm_interoperability": {
+      "executed": true,
+      "summary": {
+        "testsRun": 3,
+        "details": "See detailed results"
+      }
+    },
+    "integration": {
+      "executed": true,
+      "summary": {
+        "testsRun": 3,
+        "details": "See detailed results"
+      }
+    }
+  },
+  "performanceAnalysis": {
+    "available": true,
+    "throughput": {
+      "fastest": null,
+      "slowest": null,
+      "average": 0
+    },
+    "latency": {
+      "fastest": null,
+      "slowest": null,
+      "average": 0
+    },
+    "memory": {
+      "mostEfficient": null,
+      "leastEfficient": null,
+      "average": 0
+    }
+  },
+  "recommendations": [
+    {
+      "category": "reliability",
+      "priority": "high",
+      "message": "2 models failed testing. Review error logs and fix critical issues."
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

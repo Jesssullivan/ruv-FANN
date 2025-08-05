@@ -1,0 +1,634 @@
+# Kubernetes HPA Configurations for RUV-FANN + HuskyCats Services
+# Enables automatic scaling based on CPU, memory, and custom neural network metrics
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ruv-fann-core-hpa
+  namespace: ruv-fann
+  labels:
+    app: ruv-fann
+    component: core
+    service: neural-engine
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ruv-fann-core
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  # CPU-based scaling
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # Memory-based scaling
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Custom neural network queue size metric
+  - type: Pods
+    pods:
+      metric:
+        name: neural_network_queue_size
+      target:
+        type: AverageValue
+        averageValue: "10"
+  # GPU utilization metric (if available)
+  - type: Pods
+    pods:
+      metric:
+        name: gpu_utilization_percent
+      target:
+        type: AverageValue
+        averageValue: "75"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 1
+        periodSeconds: 120
+      selectPolicy: Min
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ruv-fann-inference-hpa
+  namespace: ruv-fann
+  labels:
+    app: ruv-fann
+    component: inference
+    service: model-serving
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ruv-fann-inference
+  minReplicas: 3
+  maxReplicas: 50
+  metrics:
+  # CPU-based scaling (lower threshold for inference)
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+  # Memory-based scaling
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 75
+  # Request queue depth for inference
+  - type: Pods
+    pods:
+      metric:
+        name: inference_queue_depth
+      target:
+        type: AverageValue
+        averageValue: "20"
+  # Requests per second
+  - type: Pods
+    pods:
+      metric:
+        name: inference_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "100"
+  # Response time metric
+  - type: Pods
+    pods:
+      metric:
+        name: inference_response_time_p95_ms
+      target:
+        type: AverageValue
+        averageValue: "200"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 200
+        periodSeconds: 15
+      - type: Pods
+        value: 5
+        periodSeconds: 30
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 180
+      policies:
+      - type: Percent
+        value: 25
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 120
+      selectPolicy: Min
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ruv-fann-training-hpa
+  namespace: ruv-fann
+  labels:
+    app: ruv-fann
+    component: training
+    service: model-training
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ruv-fann-training
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  # CPU-based scaling
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Memory-based scaling
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85
+  # Training job queue
+  - type: Pods
+    pods:
+      metric:
+        name: training_job_queue_size
+      target:
+        type: AverageValue
+        averageValue: "3"
+  # GPU memory utilization
+  - type: Pods
+    pods:
+      metric:
+        name: gpu_memory_utilization_percent
+      target:
+        type: AverageValue
+        averageValue: "80"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 120
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 120
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 300
+      selectPolicy: Min
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: huskycat-mcp-hpa
+  namespace: ruv-fann
+  labels:
+    app: huskycat
+    component: mcp
+    service: validation-server
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: huskycat-mcp
+  minReplicas: 2
+  maxReplicas: 15
+  metrics:
+  # CPU-based scaling
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 65
+  # Memory-based scaling
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # MCP connection count
+  - type: Pods
+    pods:
+      metric:
+        name: mcp_active_connections
+      target:
+        type: AverageValue
+        averageValue: "50"
+  # Validation request queue
+  - type: Pods
+    pods:
+      metric:
+        name: validation_request_queue_size
+      target:
+        type: AverageValue
+        averageValue: "15"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 45
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 3
+        periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 30
+        periodSeconds: 60
+      selectPolicy: Min
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: huskycat-validator-hpa
+  namespace: ruv-fann
+  labels:
+    app: huskycat
+    component: validator
+    service: code-validation
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: huskycat-validator
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+  # CPU-based scaling
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+  # Memory-based scaling
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Validation job queue
+  - type: Pods
+    pods:
+      metric:
+        name: validation_job_queue_size
+      target:
+        type: AverageValue
+        averageValue: "5"
+  # Active validation processes
+  - type: Pods
+    pods:
+      metric:
+        name: active_validation_processes
+      target:
+        type: AverageValue
+        averageValue: "8"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 150
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 240
+      policies:
+      - type: Percent
+        value: 40
+        periodSeconds: 60
+      selectPolicy: Min
+---
+# Custom Resource Definition for FANN-specific metrics
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: fannmetrics.monitoring.ruv-fann.io
+spec:
+  group: monitoring.ruv-fann.io
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              metricName:
+                type: string
+              value:
+                type: number
+              timestamp:
+                type: string
+                format: date-time
+              labels:
+                type: object
+                additionalProperties:
+                  type: string
+          status:
+            type: object
+            properties:
+              processed:
+                type: boolean
+              lastUpdated:
+                type: string
+                format: date-time
+  scope: Namespaced
+  names:
+    plural: fannmetrics
+    singular: fannmetric
+    kind: FannMetric
+---
+# ServiceMonitor for Prometheus to scrape FANN metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ruv-fann-metrics
+  namespace: ruv-fann
+  labels:
+    app: ruv-fann
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: ruv-fann
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+  - port: http
+    interval: 30s
+    path: /metrics
+    params:
+      format: ['prometheus']
+---
+# ServiceMonitor for HuskyCat MCP metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: huskycat-metrics
+  namespace: ruv-fann
+  labels:
+    app: huskycat
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: huskycat
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+  - port: metrics
+    interval: 15s
+    path: /prometheus
+---
+# PrometheusRule for FANN-specific alerting
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ruv-fann-alerts
+  namespace: ruv-fann
+  labels:
+    app: ruv-fann
+    component: monitoring
+spec:
+  groups:
+  - name: fann.neural.alerts
+    rules:
+    - alert: FANNHighNeuralNetworkQueueSize
+      expr: neural_network_queue_size > 50
+      for: 2m
+      labels:
+        severity: warning
+        component: core
+      annotations:
+        summary: "High neural network queue size detected"
+        description: "FANN core has {{ $value }} items in neural network queue"
+
+    - alert: FANNInferenceHighLatency
+      expr: histogram_quantile(0.95, inference_response_time_seconds) > 0.5
+      for: 1m
+      labels:
+        severity: warning
+        component: inference
+      annotations:
+        summary: "High inference response time"
+        description: "95th percentile inference time is {{ $value }}s"
+
+    - alert: FANNTrainingJobStuck
+      expr: training_job_duration_seconds > 7200
+      for: 5m
+      labels:
+        severity: critical
+        component: training
+      annotations:
+        summary: "Training job appears stuck"
+        description: "Training job has been running for {{ $value }}s"
+
+    - alert: FANNGPUUtilizationLow
+      expr: gpu_utilization_percent < 20
+      for: 10m
+      labels:
+        severity: info
+        component: gpu
+      annotations:
+        summary: "Low GPU utilization"
+        description: "GPU utilization is only {{ $value }}%"
+
+  - name: huskycat.validation.alerts
+    rules:
+    - alert: HuskyCatValidationQueueHigh
+      expr: validation_request_queue_size > 100
+      for: 3m
+      labels:
+        severity: warning
+        component: validation
+      annotations:
+        summary: "High validation request queue"
+        description: "Validation queue has {{ $value }} pending requests"
+
+    - alert: HuskyCatMCPConnectionsHigh
+      expr: mcp_active_connections > 500
+      for: 2m
+      labels:
+        severity: warning
+        component: mcp
+      annotations:
+        summary: "High MCP connection count"
+        description: "MCP server has {{ $value }} active connections"
+
+    - alert: HuskyCatValidationFailureRate
+      expr: rate(validation_failures_total[5m]) > 0.1
+      for: 2m
+      labels:
+        severity: critical
+        component: validation
+      annotations:
+        summary: "High validation failure rate"
+        description: "Validation failure rate is {{ $value }} per second"
+
+  - name: syncthing.sync.alerts
+    rules:
+    - alert: SyncthingDeviceOffline
+      expr: syncthing_device_connected == 0
+      for: 5m
+      labels:
+        severity: warning
+        component: sync
+      annotations:
+        summary: "Syncthing device offline"
+        description: "Device {{ $labels.device }} has been offline for 5+ minutes"
+
+    - alert: SyncthingFolderOutOfSync
+      expr: syncthing_folder_sync_completion_percentage < 100
+      for: 10m
+      labels:
+        severity: warning
+        component: sync
+      annotations:
+        summary: "Syncthing folder out of sync"
+        description: "Folder {{ $labels.folder }} is {{ $value }}% synced"
+
+    - alert: SyncthingHighConflictRate
+      expr: rate(syncthing_folder_conflicts_total[10m]) > 0.01
+      for: 5m
+      labels:
+        severity: warning
+        component: sync
+      annotations:
+        summary: "High Syncthing conflict rate"
+        description: "Folder {{ $labels.folder }} has {{ $value }} conflicts per second"
+
+---
+# VerticalPodAutoscaler for resource optimization
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: ruv-fann-core-vpa
+  namespace: ruv-fann
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ruv-fann-core
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: ruv-fann-core
+      minAllowed:
+        cpu: 1
+        memory: 2Gi
+      maxAllowed:
+        cpu: 16
+        memory: 32Gi
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: ruv-fann-inference-vpa
+  namespace: ruv-fann
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ruv-fann-inference
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: ruv-fann-inference
+      minAllowed:
+        cpu: 500m
+        memory: 1Gi
+      maxAllowed:
+        cpu: 8
+        memory: 16Gi
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+---
+# PodDisruptionBudget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ruv-fann-core-pdb
+  namespace: ruv-fann
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ruv-fann
+      component: core
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ruv-fann-inference-pdb
+  namespace: ruv-fann
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: ruv-fann
+      component: inference
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: huskycat-mcp-pdb
+  namespace: ruv-fann
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: huskycat
+      component: mcp

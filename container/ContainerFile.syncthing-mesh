@@ -1,0 +1,588 @@
+# Syncthing Mesh Coordinator for FANN Network Synchronization
+FROM syncthing/syncthing:latest AS base
+
+# Install coordination and automation tools
+RUN apk add --no-cache \
+    python3 py3-pip py3-requests \
+    curl jq wget \
+    git openssh-client \
+    bash coreutils findutils \
+    ca-certificates
+
+# Install Python dependencies for mesh coordination
+RUN pip3 install --no-cache-dir \
+    requests \
+    pyyaml \
+    click \
+    asyncio \
+    aiohttp
+
+# Create directories
+RUN mkdir -p /opt/syncthing/{scripts,config,templates} && \
+    mkdir -p /var/syncthing/{fann,repositories,shared} && \
+    mkdir -p /tmp/syncthing-mesh
+
+# Copy mesh coordination scripts
+COPY <<'EOF' /opt/syncthing/scripts/mesh-coordinator.py
+#!/usr/bin/env python3
+"""
+Syncthing Mesh Coordinator for FANN Networks
+Handles device discovery, folder sharing, and conflict resolution
+"""
+
+import asyncio
+import aiohttp
+import json
+import logging
+import os
+import sys
+import time
+from pathlib import Path
+from typing import Dict, List, Optional
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class SyncthingMeshCoordinator:
+    def __init__(self, api_url: str, api_key: str):
+        self.api_url = api_url.rstrip('/')
+        self.api_key = api_key
+        self.device_id = None
+        self.session = None
+        
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession(
+            headers={'X-API-Key': self.api_key},
+            timeout=aiohttp.ClientTimeout(total=30)
+        )
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
+    
+    async def get_device_id(self) -> str:
+        """Get the local device ID"""
+        if not self.device_id:
+            async with self.session.get(f'{self.api_url}/rest/system/status') as resp:
+                data = await resp.json()
+                self.device_id = data['myID']
+        return self.device_id
+    
+    async def get_config(self) -> Dict:
+        """Get current Syncthing configuration"""
+        async with self.session.get(f'{self.api_url}/rest/system/config') as resp:
+            return await resp.json()
+    
+    async def update_config(self, config: Dict) -> bool:
+        """Update Syncthing configuration"""
+        try:
+            async with self.session.post(
+                f'{self.api_url}/rest/system/config',
+                json=config,
+                headers={'Content-Type': 'application/json'}
+            ) as resp:
+                return resp.status == 200
+        except Exception as e:
+            logger.error(f"Failed to update config: {e}")
+            return False
+    
+    async def add_device(self, device_id: str, name: str, addresses: List[str] = None) -> bool:
+        """Add a new device to the mesh"""
+        config = await self.get_config()
+        
+        # Check if device already exists
+        for device in config['devices']:
+            if device['deviceID'] == device_id:
+                logger.info(f"Device {name} ({device_id}) already exists")
+                return True
+        
+        # Add new device
+        new_device = {
+            'deviceID': device_id,
+            'name': name,
+            'addresses': addresses or ['dynamic'],
+            'compression': 'metadata',
+            'certName': '',
+            'introducer': False,
+            'skipIntroductionRemovals': False,
+            'introducedBy': '',
+            'paused': False,
+            'allowedNetworks': [],
+            'autoAcceptFolders': True,
+            'maxSendKbps': 0,
+            'maxRecvKbps': 0,
+            'ignoredFolders': [],
+            'pendingFolders': [],
+            'maxRequestKiB': 0,
+            'untrusted': False,
+            'remoteGUIPort': 0
+        }
+        
+        config['devices'].append(new_device)
+        success = await self.update_config(config)
+        
+        if success:
+            logger.info(f"Added device {name} ({device_id}) to mesh")
+        else:
+            logger.error(f"Failed to add device {name}")
+            
+        return success
+    
+    async def setup_fann_folders(self) -> bool:
+        """Set up FANN-specific folders for synchronization"""
+        config = await self.get_config()
+        device_id = await self.get_device_id()
+        
+        fann_folders = [
+            {
+                'id': 'fann-models',
+                'label': 'FANN Models',
+                'path': '/var/syncthing/fann/models',
+                'type': 'sendreceive',
+                'rescanIntervalS': 3600,
+                'fsWatcherEnabled': True,
+                'fsWatcherDelayS': 10,
+                'ignorePerms': False,
+                'autoNormalize': True,
+                'minDiskFree': {'value': 5, 'unit': '%'},
+                'versioning': {
+                    'type': 'simple',
+                    'params': {'keep': '10'}
+                },
+                'devices': [{'deviceID': device_id, 'introducedBy': ''}],
+                'maxConflicts': 10,
+                'disableSparseFiles': False,
+                'disableTempIndexes': False,
+                'paused': False,
+                'weakHashThresholdPct': 25,
+                'markerName': '.stfolder'
+            },
+            {
+                'id': 'fann-datasets',
+                'label': 'FANN Training Datasets',
+                'path': '/var/syncthing/fann/datasets',
+                'type': 'sendreceive',
+                'rescanIntervalS': 7200,
+                'fsWatcherEnabled': True,
+                'fsWatcherDelayS': 30,
+                'devices': [{'deviceID': device_id, 'introducedBy': ''}],
+                'minDiskFree': {'value': 10, 'unit': '%'},
+                'versioning': {
+                    'type': 'simple',
+                    'params': {'keep': '5'}
+                }
+            },
+            {
+                'id': 'repository-sync',
+                'label': 'Repository Synchronization',
+                'path': '/var/syncthing/repositories',
+                'type': 'sendreceive',
+                'rescanIntervalS': 1800,
+                'fsWatcherEnabled': True,
+                'fsWatcherDelayS': 5,
+                'devices': [{'deviceID': device_id, 'introducedBy': ''}],
+                'minDiskFree': {'value': 2, 'unit': '%'}
+            }
+        ]
+        
+        # Add folders that don't exist
+        existing_folder_ids = {folder['id'] for folder in config['folders']}
+        
+        for folder in fann_folders:
+            if folder['id'] not in existing_folder_ids:
+                config['folders'].append(folder)
+                logger.info(f"Added folder {folder['label']} ({folder['id']})")
+        
+        return await self.update_config(config)
+    
+    async def discover_peers(self) -> List[Dict]:
+        """Discover other FANN nodes in the network"""
+        # Implementation would depend on your discovery mechanism
+        # Could use mDNS, consul, etcd, or custom service discovery
+        peers = []
+        
+        # For now, return empty list - implement based on your infrastructure
+        logger.info("Peer discovery not yet implemented")
+        return peers
+    
+    async def monitor_sync_status(self):
+        """Monitor synchronization status and handle conflicts"""
+        while True:
+            try:
+                async with self.session.get(f'{self.api_url}/rest/db/status') as resp:
+                    if resp.status == 200:
+                        status = await resp.json()
+                        
+                        for folder_id, folder_status in status.items():
+                            if folder_status.get('errors', 0) > 0:
+                                logger.warning(f"Folder {folder_id} has {folder_status['errors']} errors")
+                            
+                            if folder_status.get('needBytes', 0) > 0:
+                                logger.info(f"Folder {folder_id} needs {folder_status['needBytes']} bytes")
+                
+                # Check for conflicts
+                async with self.session.get(f'{self.api_url}/rest/db/need') as resp:
+                    if resp.status == 200:
+                        need_data = await resp.json()
+                        for folder_id, items in need_data.items():
+                            if items:
+                                logger.info(f"Folder {folder_id} has {len(items)} items to sync")
+                
+            except Exception as e:
+                logger.error(f"Error monitoring sync status: {e}")
+            
+            await asyncio.sleep(60)  # Check every minute
+
+async def main():
+    api_url = os.getenv('SYNCTHING_API_URL', 'http://localhost:8384')
+    api_key = os.getenv('SYNCTHING_API_KEY', 'default-key')
+    
+    if not api_key or api_key == 'default-key':
+        logger.error("SYNCTHING_API_KEY environment variable not set")
+        sys.exit(1)
+    
+    async with SyncthingMeshCoordinator(api_url, api_key) as coordinator:
+        logger.info("Starting Syncthing Mesh Coordinator")
+        
+        # Initialize FANN folders
+        await coordinator.setup_fann_folders()
+        
+        # Discover and add peers
+        peers = await coordinator.discover_peers()
+        for peer in peers:
+            await coordinator.add_device(
+                peer['device_id'],
+                peer['name'],
+                peer.get('addresses', ['dynamic'])
+            )
+        
+        # Start monitoring
+        await coordinator.monitor_sync_status()
+
+if __name__ == '__main__':
+    asyncio.run(main())
+EOF
+
+# Copy FANN sync script
+COPY <<'EOF' /opt/syncthing/scripts/fann-sync.sh
+#!/bin/bash
+set -euo pipefail
+
+# FANN Network Synchronization Script
+# Handles model distribution, dataset sharing, and repository sync
+
+SYNCTHING_API_URL="${SYNCTHING_API_URL:-http://localhost:8384}"
+SYNCTHING_API_KEY="${SYNCTHING_API_KEY:-}"
+FANN_MODELS_PATH="${FANN_MODELS_PATH:-/var/syncthing/fann/models}"
+FANN_DATASETS_PATH="${FANN_DATASETS_PATH:-/var/syncthing/fann/datasets}"
+REPOSITORY_PATH="${REPOSITORY_PATH:-/var/syncthing/repositories}"
+
+log() {
+    echo "[$(date -Iseconds)] $*" >&2
+}
+
+api_call() {
+    local method="$1"
+    local endpoint="$2"
+    local data="${3:-}"
+    
+    if [[ -n "$data" ]]; then
+        curl -s -X "$method" \
+             -H "X-API-Key: $SYNCTHING_API_KEY" \
+             -H "Content-Type: application/json" \
+             -d "$data" \
+             "$SYNCTHING_API_URL$endpoint"
+    else
+        curl -s -X "$method" \
+             -H "X-API-Key: $SYNCTHING_API_KEY" \
+             "$SYNCTHING_API_URL$endpoint"
+    fi
+}
+
+wait_for_syncthing() {
+    log "Waiting for Syncthing to be ready..."
+    local retries=30
+    local count=0
+    
+    while (( count < retries )); do
+        if api_call GET "/rest/system/ping" >/dev/null 2>&1; then
+            log "Syncthing is ready"
+            return 0
+        fi
+        
+        log "Syncthing not ready, waiting... ($((count + 1))/$retries)"
+        sleep 2
+        ((count++))
+    done
+    
+    log "ERROR: Syncthing failed to start within $(( retries * 2 )) seconds"
+    return 1
+}
+
+setup_directories() {
+    log "Setting up FANN sync directories..."
+    
+    mkdir -p "$FANN_MODELS_PATH" "$FANN_DATASETS_PATH" "$REPOSITORY_PATH"
+    
+    # Create marker files
+    touch "$FANN_MODELS_PATH/.stfolder"
+    touch "$FANN_DATASETS_PATH/.stfolder"
+    touch "$REPOSITORY_PATH/.stfolder"
+    
+    # Set proper permissions
+    chmod -R 755 /var/syncthing/
+    
+    log "Directories set up successfully"
+}
+
+sync_models() {
+    log "Synchronizing FANN models..."
+    
+    # Trigger manual sync for models folder
+    api_call POST "/rest/db/scan?folder=fann-models" || log "Warning: Failed to trigger model sync"
+    
+    # Check sync status
+    local status
+    status=$(api_call GET "/rest/db/status?folder=fann-models" | jq -r '.state // "unknown"')
+    log "Models folder status: $status"
+}
+
+sync_datasets() {
+    log "Synchronizing training datasets..."
+    
+    # Trigger manual sync for datasets folder
+    api_call POST "/rest/db/scan?folder=fann-datasets" || log "Warning: Failed to trigger dataset sync"
+    
+    # Check sync status
+    local status
+    status=$(api_call GET "/rest/db/status?folder=fann-datasets" | jq -r '.state // "unknown"')
+    log "Datasets folder status: $status"
+}
+
+sync_repositories() {
+    log "Synchronizing repositories..."
+    
+    # Trigger manual sync for repository folder
+    api_call POST "/rest/db/scan?folder=repository-sync" || log "Warning: Failed to trigger repository sync"
+    
+    # Check sync status
+    local status
+    status=$(api_call GET "/rest/db/status?folder=repository-sync" | jq -r '.state // "unknown"')
+    log "Repository folder status: $status"
+}
+
+monitor_conflicts() {
+    log "Checking for sync conflicts..."
+    
+    local conflicts
+    conflicts=$(api_call GET "/rest/db/need?folder=fann-models" | jq '.[]? | select(.type == "file" and .name | endswith(".sync-conflict-")) | .name' 2>/dev/null || echo "[]")
+    
+    if [[ "$conflicts" != "[]" && -n "$conflicts" ]]; then
+        log "WARNING: Found sync conflicts in models folder:"
+        echo "$conflicts" | while read -r conflict; do
+            log "  - $conflict"
+        done
+    fi
+}
+
+cleanup_old_versions() {
+    log "Cleaning up old model versions..."
+    
+    # Remove old versions (keep last 5)
+    find "$FANN_MODELS_PATH" -name "*.old.*" -type f -mtime +7 -delete 2>/dev/null || true
+    find "$FANN_MODELS_PATH" -name "*.v[0-9]*" -type f | sort -V | head -n -5 | xargs rm -f 2>/dev/null || true
+    
+    log "Cleanup completed"
+}
+
+main() {
+    log "Starting FANN synchronization script"
+    
+    if [[ -z "$SYNCTHING_API_KEY" ]]; then
+        log "ERROR: SYNCTHING_API_KEY environment variable not set"
+        exit 1
+    fi
+    
+    wait_for_syncthing || exit 1
+    setup_directories
+    
+    case "${1:-sync}" in
+        "sync")
+            sync_models
+            sync_datasets
+            sync_repositories
+            monitor_conflicts
+            cleanup_old_versions
+            ;;
+        "models")
+            sync_models
+            ;;
+        "datasets")
+            sync_datasets
+            ;;
+        "repositories")
+            sync_repositories
+            ;;
+        "conflicts")
+            monitor_conflicts
+            ;;
+        "cleanup")
+            cleanup_old_versions
+            ;;
+        *)
+            log "Usage: $0 [sync|models|datasets|repositories|conflicts|cleanup]"
+            exit 1
+            ;;
+    esac
+    
+    log "FANN synchronization completed"
+}
+
+main "$@"
+EOF
+
+# Copy entrypoint script
+COPY <<'EOF' /usr/local/bin/syncthing-mesh-entrypoint
+#!/bin/bash
+set -euo pipefail
+
+log() {
+    echo "[$(date -Iseconds)] MESH: $*" >&2
+}
+
+log "Starting Syncthing Mesh Coordinator"
+
+# Set default environment variables
+export SYNCTHING_API_URL="${SYNCTHING_API_URL:-http://localhost:8384}"
+export SYNCTHING_API_KEY="${SYNCTHING_API_KEY:-$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)}"
+export MESH_MODE="${MESH_MODE:-coordinator}"
+export FANN_SYNC_ENABLED="${FANN_SYNC_ENABLED:-true}"
+
+# Generate device ID if not exists
+if [[ ! -f /var/syncthing/config/cert.pem ]]; then
+    log "Generating Syncthing certificates..."
+    syncthing -generate=/var/syncthing/config
+fi
+
+# Set up configuration from template if needed
+if [[ ! -f /var/syncthing/config/config.xml && -f /opt/syncthing/templates/config-template.xml ]]; then
+    log "Setting up initial configuration..."
+    envsubst < /opt/syncthing/templates/config-template.xml > /var/syncthing/config/config.xml
+fi
+
+# Ensure proper permissions
+chown -R syncthing:syncthing /var/syncthing/
+chmod -R 755 /var/syncthing/
+
+# Start Syncthing in background
+log "Starting Syncthing daemon..."
+syncthing serve --no-browser --no-restart --logflags=0 --home=/var/syncthing/config &
+SYNCTHING_PID=$!
+
+# Wait for Syncthing to be ready
+sleep 10
+
+# Start mesh coordinator if enabled
+if [[ "$MESH_MODE" == "coordinator" ]]; then
+    log "Starting mesh coordinator..."
+    /opt/syncthing/scripts/mesh-coordinator.py &
+    COORDINATOR_PID=$!
+fi
+
+# Start FANN sync if enabled
+if [[ "$FANN_SYNC_ENABLED" == "true" ]]; then
+    log "Starting FANN sync monitor..."
+    while true; do
+        /opt/syncthing/scripts/fann-sync.sh sync
+        sleep 300  # Sync every 5 minutes
+    done &
+    FANN_PID=$!
+fi
+
+# Handle shutdown gracefully
+cleanup() {
+    log "Shutting down mesh coordinator..."
+    [[ -n "${COORDINATOR_PID:-}" ]] && kill "$COORDINATOR_PID" 2>/dev/null || true
+    [[ -n "${FANN_PID:-}" ]] && kill "$FANN_PID" 2>/dev/null || true
+    [[ -n "${SYNCTHING_PID:-}" ]] && kill "$SYNCTHING_PID" 2>/dev/null || true
+    wait
+    log "Shutdown complete"
+}
+
+trap cleanup SIGTERM SIGINT
+
+# Wait for processes
+wait $SYNCTHING_PID
+EOF
+
+# Make scripts executable
+RUN chmod +x /opt/syncthing/scripts/*.py && \
+    chmod +x /opt/syncthing/scripts/*.sh && \
+    chmod +x /usr/local/bin/syncthing-mesh-entrypoint
+
+# Copy configuration template
+COPY <<'EOF' /opt/syncthing/templates/config-template.xml
+<configuration version="37">
+    <folder id="fann-models" label="FANN Models" path="/var/syncthing/fann/models" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10">
+        <device id="${DEVICE_ID}" introducedBy=""></device>
+        <minDiskFree unit="%">5</minDiskFree>
+        <versioning>
+            <param key="keep" val="10"></param>
+        </versioning>
+    </folder>
+    
+    <folder id="fann-datasets" label="FANN Datasets" path="/var/syncthing/fann/datasets" type="sendreceive" rescanIntervalS="7200" fsWatcherEnabled="true" fsWatcherDelayS="30">
+        <device id="${DEVICE_ID}" introducedBy=""></device>
+        <minDiskFree unit="%">10</minDiskFree>
+        <versioning>
+            <param key="keep" val="5"></param>
+        </versioning>
+    </folder>
+    
+    <folder id="repository-sync" label="Repository Sync" path="/var/syncthing/repositories" type="sendreceive" rescanIntervalS="1800" fsWatcherEnabled="true" fsWatcherDelayS="5">
+        <device id="${DEVICE_ID}" introducedBy=""></device>
+        <minDiskFree unit="%">2</minDiskFree>
+    </folder>
+
+    <gui enabled="true" tls="false" debugging="false">
+        <address>0.0.0.0:8384</address>
+        <apikey>${SYNCTHING_API_KEY}</apikey>
+        <theme>default</theme>
+    </gui>
+
+    <options>
+        <listenAddress>default</listenAddress>
+        <globalAnnounceEnabled>true</globalAnnounceEnabled>
+        <localAnnounceEnabled>true</localAnnounceEnabled>
+        <localAnnouncePort>21027</localAnnouncePort>
+        <relaysEnabled>true</relaysEnabled>
+        <startBrowser>false</startBrowser>
+        <natEnabled>true</natEnabled>
+        <urAccepted>-1</urAccepted>
+        <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
+        <upgradeToPreReleases>false</upgradeToPreReleases>
+        <keepTemporariesH>24</keepTemporariesH>
+        <cacheIgnoredFiles>false</cacheIgnoredFiles>
+        <progressUpdateIntervalS>5</progressUpdateIntervalS>
+        <limitBandwidthInLan>false</limitBandwidthInLan>
+        <minHomeDiskFree unit="%">1</minHomeDiskFree>
+    </options>
+</configuration>
+EOF
+
+# Set working directory
+WORKDIR /var/syncthing
+
+# Expose ports
+EXPOSE 8384 22000 21027/udp
+
+# Create volumes
+VOLUME ["/var/syncthing"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+    CMD curl -f -H "X-API-Key: ${SYNCTHING_API_KEY}" http://localhost:8384/rest/system/ping || exit 1
+
+# Set entrypoint
+ENTRYPOINT ["/usr/local/bin/syncthing-mesh-entrypoint"]

@@ -1,0 +1,70 @@
+{
+  "tool_hints": {
+    "swarm_init": {
+      "description": "Initialize a swarm with optimal topology",
+      "best_practices": [
+        "Use 'mesh' for collaborative tasks",
+        "Use 'hierarchical' for complex orchestration",
+        "Start with 5-10 max agents"
+      ],
+      "parameters": {
+        "topology": ["mesh", "hierarchical", "ring", "star"],
+        "maxAgents": "5-100",
+        "strategy": ["adaptive", "balanced", "specialized"]
+      }
+    },
+    "neural_train": {
+      "description": "Train neural networks with various algorithms",
+      "best_practices": [
+        "Always specify agentId",
+        "Use small batch sizes for testing",
+        "Enable SIMD for performance"
+      ],
+      "performance": "500K+ ops/sec with SIMD"
+    },
+    "daa_agent_create": {
+      "description": "Create autonomous agents with learning capabilities",
+      "cognitive_patterns": [
+        "convergent: focused problem-solving",
+        "divergent: creative exploration",
+        "lateral: unconventional approaches",
+        "systems: holistic thinking",
+        "critical: analytical evaluation",
+        "adaptive: dynamic adjustment"
+      ]
+    },
+    "task_orchestrate": {
+      "description": "Distribute tasks across swarm agents",
+      "strategies": {
+        "parallel": "Execute simultaneously",
+        "sequential": "Execute in order",
+        "adaptive": "Dynamic allocation"
+      },
+      "max_agents": 10
+    }
+  },
+  "model_capabilities": {
+    "transformer": {
+      "variants": ["BERT", "GPT", "T5"],
+      "use_cases": ["NLP", "text generation", "translation"]
+    },
+    "cnn": {
+      "variants": ["ResNet", "EfficientNet", "YOLO"],
+      "use_cases": ["image classification", "object detection"]
+    },
+    "rnn": {
+      "variants": ["LSTM", "GRU", "BiLSTM"],
+      "use_cases": ["time series", "sequence prediction"]
+    },
+    "gnn": {
+      "variants": ["GCN", "GAT", "GraphSAGE"],
+      "use_cases": ["graph analysis", "molecular modeling"]
+    }
+  },
+  "optimization_hints": {
+    "batch_operations": "Always batch multiple tool calls in parallel",
+    "memory_management": "Use TTL for temporary data",
+    "persistence": "Store critical results with namespace isolation",
+    "performance": "Enable WASM SIMD for 2-4x speedup"
+  }
+}

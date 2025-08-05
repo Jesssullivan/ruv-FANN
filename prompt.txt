@@ -1,0 +1,28 @@
+I'd like you to leverage the swarm to investigate the ruv-fann MCP server implementation.  The local stdio npm server does not work on my machine.  I'd like you you discover all the tools, models, advanced functions that are NOT stubs and map them out.
+
+Our goal is to re-implement ruv-fann and all its features into a HPA friendly server just like we've begun to do in ../huskycats-bates; most importatntly , this will require implementing the syncthing feature set for the fann network to properly operate over repo contents.  I'd like you to re-implient the ContainerFile and podman-compose setup for ruv-fann and fully absorb ../huskycats-bates logical tool services such that the logical functions that can be called to the huskycat service are just like any other feature of ruv-fann.
+
+The ultimate goal is to be able to integrate the merged, podman-compose k8s ready MCP server into the ../claude-flow alpha invocation and MCP tool bootstrap setup.
+
+
+> Lets take some time to simpklify,          │
+│   consolidate and distill build, startup,    │
+│   podman deployment for all these tools.     │
+│   remove stubs, out of date / unused files   │
+│   and greatly simplify the local readme      │
+│   around the container based build and       │
+│   deploy fo rpodman desktop or k8s.  then,   │
+│   preform similar mods and integration       │
+│   withe ../claude-flow alpha such that the   │
+│   init and local MCP configs that are        │
+│   bootstrapped deploy the podman MCP and     │
+│   connect it persistanntly with the claude   │
+│   flow session, ensuring all db              │
+│   connnections, memory features, MCP         │
+│   stability are accounted for.  be sure to   │
+│   research and impliment sophifticated pre   │
+│   tool use, post tool use, claude hooks,     │
+│   commands, tool calling hints, tool list    │
+│   API endpoint for all the fann and mcp      │
+│   tools and theirt features.                 │
+╰──────────────────────────────────
