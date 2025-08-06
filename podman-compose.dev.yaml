@@ -1,0 +1,40 @@
+# Development override for ruv-FANN
+# Usage: podman-compose -f podman-compose.yaml -f podman-compose.dev.yaml up
+
+version: '3.8'
+
+services:
+  ruv-fann-stack:
+    environment:
+      # Development settings
+      - NODE_ENV=development
+      - DEVELOPMENT=true
+      - HOT_RELOAD=true
+      - RUST_LOG=debug
+      - DEBUG=*
+      
+    ports:
+      # Additional development ports
+      - "9229:9229"  # Node.js debugger
+      - "3001:3001"  # Development server
+      
+    volumes:
+      # Live code reloading
+      - ./src:/app/src:rw,Z
+      - ./tests:/app/tests:rw,Z
+      - ./scripts:/app/scripts:rw,Z
+      
+    command: >
+      bash -c "
+        echo 'Starting in development mode...' &&
+        npm run dev || supervisord -n -c /etc/supervisor/conf.d/supervisor.conf
+      "
+      
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'
+          memory: 16G
+        reservations:
+          cpus: '1.0'
+          memory: 2G

@@ -1,82 +1,155 @@
-# ruv-FANN Production Container
-# Consolidated multi-stage build for Podman/K8s deployment
+# ruv-FANN Consolidated Production Container
+# Optimized multi-stage build with all components
 
-FROM node:20-alpine AS builder
+# Build stage 1: Rust compilation
+FROM rust:1.81-alpine AS rust-builder
 
-# Install build essentials and dependencies
+# Install Rust build dependencies
 RUN apk add --no-cache \
-    python3 python3-dev \
-    gcc g++ make cmake \
-    git curl jq \
-    rust cargo \
-    postgresql-client \
-    libpq-dev
+    gcc g++ musl-dev linux-headers \
+    pkgconfig openssl-dev \
+    git curl wget jq \
+    python3-dev make cmake
 
-# Install WASM tools
-RUN cargo install wasm-pack wasm-bindgen-cli
+# Install WASM build tools
+RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+RUN wget -q https://github.com/WebAssembly/binaryen/releases/download/version_118/binaryen-version_118-x86_64-linux.tar.gz && \
+    tar -xzf binaryen-version_118-x86_64-linux.tar.gz && \
+    cp binaryen-version_118/bin/wasm-opt /usr/local/bin/ && \
+    rm -rf binaryen-version_118*
 
 WORKDIR /app
 
-# Copy and install Node dependencies
+# Copy Rust manifests for dependency caching
+COPY Cargo.toml Cargo.lock ./
+COPY src/lib.rs src/lib.rs
+
+# Pre-build dependencies
+RUN mkdir -p src && echo 'fn main() {}' > src/main.rs && \
+    cargo build --release --features="default,gpu,wasm,parallel" && \
+    rm -rf src/
+
+# Copy all source code
+COPY src/ ./src/
+COPY cuda-wasm/ ./cuda-wasm/
+COPY neuro-divergent/ ./neuro-divergent/
+COPY ruv-swarm/ ./ruv-swarm/
+
+# Build FANN core with all features
+RUN cargo build --release --features="default,gpu,wasm,parallel,ruv-swarm"
+
+# Build optimized WASM modules
+RUN cd ruv-swarm/crates/ruv-swarm-wasm && \
+    wasm-pack build --target nodejs --release --out-dir ../../../npm/wasm --features simd
+
+RUN cd cuda-wasm && \
+    wasm-pack build --target web --release --out-dir ../wasm-cuda
+
+# Optimize WASM files
+RUN find . -name "*.wasm" -exec wasm-opt -Oz {} -o {} \;
+
+# Build stage 2: Node.js compilation
+FROM node:20-alpine AS node-builder
+
+WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
 COPY ruv-swarm/npm/package*.json ./ruv-swarm/npm/
-RUN npm ci --production=false
 
-# Build Rust/WASM components
-COPY Cargo.toml Cargo.lock ./
-COPY src ./src
-COPY ruv-swarm ./ruv-swarm
-RUN cd ruv-swarm && \
-    cargo build --release --target wasm32-unknown-unknown && \
-    wasm-pack build --target nodejs --out-dir npm/wasm --features simd
+# Install all dependencies (including dev)
+RUN npm ci --include=dev
+RUN cd ruv-swarm/npm && npm ci --include=dev
 
-# Production stage
-FROM node:20-alpine
+# Copy source and build
+COPY ruv-swarm/npm/src/ ./ruv-swarm/npm/src/
+COPY ruv-swarm/npm/tsconfig.json ./ruv-swarm/npm/
+COPY mcp-server/ ./mcp-server/
 
-# Install runtime dependencies
+# Build Node.js components
+RUN cd ruv-swarm/npm && npm run build
+RUN if [ -f "package.json" ] && grep -q "\"build\"" package.json; then npm run build; fi
+
+# Production stage: Optimized runtime
+FROM alpine:3.19
+
+# Install runtime dependencies in single layer
 RUN apk add --no-cache \
-    python3 \
-    postgresql-client \
-    redis \
-    syncthing \
-    curl jq \
-    supervisor
-
-# Create non-root user
-RUN addgroup -g 1000 fann && \
-    adduser -D -u 1000 -G fann fann
+    nodejs npm \
+    python3 py3-pip \
+    postgresql15 postgresql15-client redis \
+    syncthing supervisor \
+    curl wget jq netcat-openbsd \
+    git openssh-client ca-certificates \
+    libgcc libstdc++ \
+    bash shadow && \
+    # Create fann user and group
+    addgroup -g 1000 fann && \
+    adduser -D -s /bin/bash -u 1000 -G fann fann && \
+    # Create all required directories
+    mkdir -p /app /data/{models,sync,cache,memory,postgres,redis,logs} \
+             /etc/supervisor/conf.d /var/log/supervisor \
+             /opt/ruv-fann/{bin,lib,wasm} \
+             /mnt/syncthing && \
+    # Set permissions
+    chown -R fann:fann /app /data /opt/ruv-fann /mnt/syncthing && \
+    chown -R postgres:postgres /data/postgres && \
+    chmod 755 /data/postgres
 
 WORKDIR /app
 
-# Copy built application
-COPY --from=builder --chown=fann:fann /app/node_modules ./node_modules
-COPY --from=builder --chown=fann:fann /app/ruv-swarm ./ruv-swarm
+# Copy Rust binaries and libraries
+COPY --from=rust-builder --chown=fann:fann /app/target/release/ruv-fann /opt/ruv-fann/bin/
+COPY --from=rust-builder --chown=fann:fann /app/ruv-swarm/npm/wasm/ /opt/ruv-fann/wasm/ruv-swarm/
+COPY --from=rust-builder --chown=fann:fann /app/wasm-cuda/ /opt/ruv-fann/wasm/cuda/
+
+# Copy Node.js application
+COPY --from=node-builder --chown=fann:fann /app/node_modules ./node_modules
+COPY --from=node-builder --chown=fann:fann /app/ruv-swarm ./ruv-swarm
+COPY --from=node-builder --chown=fann:fann /app/mcp-server ./mcp-server
+
+# Copy configuration files
 COPY --chown=fann:fann package*.json ./
-COPY --chown=fann:fann mcp-server ./mcp-server
-COPY --chown=fann:fann scripts/entrypoint.sh ./
 COPY --chown=fann:fann config/supervisor.conf /etc/supervisor/conf.d/
+COPY --chown=fann:fann scripts/entrypoint.sh ./entrypoint.sh
+COPY --chown=fann:fann sql/ ./sql/
 
-# Create data directories
-RUN mkdir -p /data/{models,sync,cache,memory,postgres,redis} && \
-    chown -R fann:fann /data
+# Create optimized startup script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+echo "Initializing ruv-FANN stack..."\n\
+# Initialize PostgreSQL if not exists\n\
+if [ ! -f "/data/postgres/PG_VERSION" ]; then\n\
+    echo "Initializing PostgreSQL..."\n\
+    sudo -u postgres initdb -D /data/postgres\n\
+    echo "host all all 0.0.0.0/0 trust" >> /data/postgres/pg_hba.conf\n\
+    echo "listen_addresses = \047*\047" >> /data/postgres/postgresql.conf\n\
+fi\n\
+# Start supervisor\n\
+exec supervisord -n -c /etc/supervisor/conf.d/supervisor.conf' > /app/start.sh && \
+    chmod +x /app/start.sh /app/entrypoint.sh
 
-# Environment
+# Set environment variables
 ENV NODE_ENV=production \
     MCP_SERVER_PORT=3000 \
     REDIS_URL=redis://localhost:6379 \
     POSTGRES_URL=postgresql://fann:fann123@localhost:5432/fanndb \
     SYNCTHING_API=http://localhost:8384 \
     WASM_SIMD_ENABLED=true \
-    CLAUDE_FLOW_ENABLED=true
+    CLAUDE_FLOW_ENABLED=true \
+    DAA_ENABLED=true \
+    NEURAL_MODELS_PATH=/data/models \
+    RUST_LOG=info \
+    PATH="/opt/ruv-fann/bin:$PATH"
 
-USER fann
-
-# Ports
+# Expose all required ports
 EXPOSE 3000 5432 6379 8384 22000 21027/udp
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+# Multi-service health check
+HEALTHCHECK --interval=15s --timeout=5s --retries=5 --start-period=30s \
+    CMD curl -f http://localhost:3000/health && \
+        redis-cli -p 6379 ping && \
+        pg_isready -h localhost -p 5432 -U fann || exit 1
 
-# Start supervisor
-CMD ["supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisor.conf"]
+# Use optimized startup
+CMD ["/app/start.sh"]

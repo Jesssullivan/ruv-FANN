@@ -1,4 +1,19 @@
-│ > great!  finish this implimnetation off in the ../claud-flow       │
+> great!  please modify and push changes to ../claude-flow repo
+  such that (when on the claude-flow feat/validators branch) A
+  user can clone the claude-flow repo, run
+  ./claude-flow-validate-init.sh (that will build
+  claude-flow@alpha-local with all the hooks, download, build and
+  install the validator version of the ruv-fann MCP in local
+  podman desktop etc) such that the user can then then issue a
+  command such as  npx claude-flow@alpha-local hive-mind spawn
+  "<prompt>"  --agents 8 --strategy development --auto-spawn
+  --claude and see the full local MCP podman stack come up (not
+  the default npm installed ruv-fann mcp that fails, but our
+  podman version with th3 validator features and tools) use rthe
+  swarm to make this a reality.
+
+
+
 │   repo, and this ruv-fann repo by commit ahd pushing on             │
 │   feat/validators branches and providing clear, turnkey             │
 │   instructions to deploy the full stack from the ../claude-flow/    │

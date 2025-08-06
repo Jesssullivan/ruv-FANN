@@ -2,19 +2,44 @@
 
 Turnkey deployment of neural consensus validators for distributed AI swarms with Claude Flow integration.
 
-## 🚀 Quick Start
+## 🚀 Quick Start - Container Deployment
 
-**One command deployment:**
+### One-Command Setup
 
 ```bash
-make deploy
+# Complete deployment with Claude Flow integration
+make quickstart
 ```
 
-This will:
-- Build the consolidated container
-- Start all services (PostgreSQL, Redis, Syncthing, MCP Server)
-- Initialize the neural validation system
-- Be ready for Claude Flow integration
+This single command will:
+- ✅ Build optimized multi-stage container
+- ✅ Deploy PostgreSQL, Redis, Syncthing, and MCP Server
+- ✅ Initialize 27+ neural validation models
+- ✅ Bootstrap Claude Flow MCP integration
+- ✅ Configure persistent volumes and networking
+- ✅ Start health monitoring and auto-recovery
+
+### Claude Flow Integration
+
+```bash
+# From the claude-flow repository
+cd ../claude-flow
+./claude-flow-validate-init.sh
+
+# Then use the integrated hive-mind command
+npx claude-flow@alpha-local hive-mind spawn "Your task" \
+  --agents 8 --strategy development --auto-spawn --claude
+```
+
+### Container Management
+
+```bash
+make status   # Check service health
+make logs     # View real-time logs
+make dev      # Development mode with hot reload
+make stop     # Gracefully stop services
+make clean    # Full cleanup
+```
 
 ## 🌟 The Vision
 
